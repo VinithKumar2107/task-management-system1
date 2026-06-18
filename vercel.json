@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "installCommand": "npm install --prefix task-management-app/client",
+  "buildCommand": "npm run build --prefix task-management-app/client",
+  "outputDirectory": "task-management-app/client/dist",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
