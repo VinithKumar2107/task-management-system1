@@ -2,7 +2,7 @@ services:
   - type: web
     name: task-management-api
     env: node
-    rootDir: task-management-app/server
+    rootDir: server
     buildCommand: npm install
     startCommand: npm start
     autoDeploy: true

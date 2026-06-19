@@ -8,5 +8,14 @@
       "source": "/(.*)",
       "destination": "/index.html"
     }
-  ]
+  ],
+  "experimentalServices": {
+    "task-management-api": {
+      "type": "web",
+      "root": "task-management-app/server",
+      "entrypoint": "server.js",
+      "routePrefix": "/",
+      "buildCommand": "npm install"
+    }
+  }
 }
