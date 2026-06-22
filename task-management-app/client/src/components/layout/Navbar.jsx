@@ -1,55 +1,46 @@
-import { Bell, Menu, Search, Sparkles } from "lucide-react";
+import React from 'react';
+import { Search, Bell, User, Menu } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 
-import { useAuth } from "../../contexts/AuthContext";
-
-function Navbar({ onMenuClick }) {
+const Navbar = ({ onMenuClick }) => {
   const { user } = useAuth();
-  const initials = (user?.name || "U")
-    .split(" ")
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
 
   return (
-    <header className="app-navbar">
-      <div className="flex items-center gap-3">
-        <button className="icon-btn" type="button" onClick={onMenuClick} aria-label="Toggle menu">
-          <Menu size={18} />
+    <nav className="glass p-4 flex items-center justify-between" style={{ borderBottom: '1px solid hsla(var(--color-border), 0.5)' }}>
+      <div className="flex items-center gap-4 flex-1">
+        <button onClick={onMenuClick} className="btn btn-secondary p-2 md:hidden">
+          <Menu size={20} />
         </button>
-        <div className="stack-2">
-          <span className="page-kicker">
-            <Sparkles size={14} />
-            Advanced Task Workspace
-          </span>
-          <div>
-            <h1 className="heading-md">Task management, analytics, and team flow</h1>
-            <p className="subtle" style={{ margin: 0 }}>Track work from intake to completion in one calm SaaS interface.</p>
-          </div>
+        
+        <div className="hidden md:flex items-center flex-1 max-w-md relative">
+          <Search size={18} className="absolute left-3 text-muted" />
+          <input 
+            type="text" 
+            placeholder="Search tasks..." 
+            className="input" 
+            style={{ paddingLeft: '2.5rem', borderRadius: 'var(--radius-full)' }} 
+          />
         </div>
       </div>
 
-      <div className="search-shell">
-        <Search size={17} className="muted" />
-        <input className="input" type="search" placeholder="Search tasks, priorities, or statuses" />
-      </div>
-
-      <div className="toolbar">
-        <button className="icon-btn" type="button" aria-label="Notifications">
-          <Bell size={18} />
+      <div className="flex items-center gap-4">
+        <button className="relative p-2 text-muted hover:text-white transition-colors">
+          <Bell size={20} />
+          <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full"></span>
         </button>
-        <div className="profile-chip">
-          <div className="avatar" aria-hidden="true">
-            {initials}
+        
+        <div className="flex items-center gap-3 border-l pl-4" style={{ borderColor: 'hsla(var(--color-border), 0.8)' }}>
+          <div className="text-right hidden sm:block">
+            <p className="text-sm font-medium">{user?.name || 'User'}</p>
+            <p className="text-xs text-muted">Admin</p>
           </div>
-          <div className="profile-chip__name">
-            <strong>{user?.name || "Task User"}</strong>
-            <span className="muted">Product Team</span>
+          <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center font-bold shadow-glow">
+            {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
           </div>
         </div>
       </div>
-    </header>
+    </nav>
   );
-}
+};
 
 export default Navbar;

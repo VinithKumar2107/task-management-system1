@@ -1,58 +1,90 @@
-import { Edit3, GripVertical, Trash2 } from "lucide-react";
-import { useDraggable } from "@dnd-kit/core";
-import { CSS } from "@dnd-kit/utilities";
+import React from 'react';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { Calendar, MoreVertical, Edit2, Trash2 } from 'lucide-react';
+import { useTask } from '../../contexts/TaskContext';
 
-const statusClass = {
-  Pending: "badge--pending",
-  "In Progress": "badge--in-progress",
-  Completed: "badge--completed",
-};
+const TaskCard = ({ task, onEdit }) => {
+  const { deleteTask } = useTask();
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: task.id });
 
-const priorityClass = {
-  low: "priority--low",
-  medium: "priority--medium",
-  high: "priority--high",
-};
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 50 : 'auto',
+  };
 
-function TaskCard({ task, onEdit, onDelete }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: task._id,
-    data: { task },
-  });
+  const getPriorityColor = (priority) => {
+    switch (priority) {
+      case 'high': return 'badge-high';
+      case 'medium': return 'badge-medium';
+      case 'low': return 'badge-low';
+      default: return 'badge-low';
+    }
+  };
+
+  const handleDelete = (e) => {
+    e.stopPropagation();
+    if (window.confirm('Are you sure you want to delete this task?')) {
+      deleteTask(task.id);
+    }
+  };
+
+  const handleEdit = (e) => {
+    e.stopPropagation();
+    onEdit(task);
+  };
 
   return (
-    <article
+    <div
       ref={setNodeRef}
-      className={`task-card${isDragging ? " is-dragging" : ""}`}
-      style={{ transform: CSS.Translate.toString(transform) }}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className={`glass-card p-4 mb-4 cursor-grab active:cursor-grabbing ${isDragging ? 'shadow-glow' : ''}`}
     >
-      <div className="task-card__top">
-        <div className="stack-2" {...attributes} {...listeners}>
-          <div className="flex items-center gap-2 wrap">
-            <span className={`badge ${statusClass[task.status] || "badge--pending"}`}>{task.status}</span>
-            <span className={`badge ${priorityClass[task.priority] || "priority--medium"}`}>{String(task.priority || "medium").toUpperCase()}</span>
-          </div>
-          <h3 className="task-card__title">{task.title}</h3>
+      <div className="flex justify-between items-start mb-2">
+        <span className={`badge ${getPriorityColor(task.priority)}`}>
+          {task.priority}
+        </span>
+        
+        <div className="flex items-center gap-1">
+          <button 
+            onClick={handleEdit}
+            className="p-1 text-muted hover:text-primary transition-colors"
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            <Edit2 size={14} />
+          </button>
+          <button 
+            onClick={handleDelete}
+            className="p-1 text-muted hover:text-danger transition-colors"
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            <Trash2 size={14} />
+          </button>
         </div>
-        <button className="task-card__icon-btn" type="button" aria-label="Drag task" {...attributes} {...listeners}>
-          <GripVertical size={16} />
-        </button>
       </div>
-
-      <p className="task-card__description">
-        {task.description ? (task.description.length > 140 ? `${task.description.slice(0, 140)}...` : task.description) : "No description provided."}
-      </p>
-
-      <div className="task-card__actions">
-        <button type="button" className="task-card__icon-btn" onClick={() => onEdit(task)} aria-label="Edit task">
-          <Edit3 size={15} />
-        </button>
-        <button type="button" className="task-card__icon-btn" onClick={() => onDelete(task)} aria-label="Delete task">
-          <Trash2 size={15} />
-        </button>
+      
+      <h3 className="font-semibold text-white mb-1">{task.title}</h3>
+      <p className="text-sm text-muted mb-4 line-clamp-2">{task.description}</p>
+      
+      <div className="flex items-center justify-between text-xs text-muted pt-3 border-t" style={{ borderColor: 'hsla(var(--color-border), 0.5)' }}>
+        <div className="flex items-center gap-1">
+          <Calendar size={12} />
+          <span>{new Date(task.createdAt).toLocaleDateString()}</span>
+        </div>
       </div>
-    </article>
+    </div>
   );
-}
+};
 
 export default TaskCard;

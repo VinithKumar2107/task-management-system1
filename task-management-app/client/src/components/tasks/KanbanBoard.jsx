@@ -1,134 +1,111 @@
-import { useMemo, useState } from "react";
+import React, { useState } from 'react';
+import { 
+  DndContext, 
+  closestCorners, 
+  KeyboardSensor, 
+  PointerSensor, 
+  useSensor, 
+  useSensors 
+} from '@dnd-kit/core';
+import { 
+  SortableContext, 
+  verticalListSortingStrategy 
+} from '@dnd-kit/sortable';
+import { useTask } from '../../contexts/TaskContext';
+import TaskCard from './TaskCard';
 
-import { DndContext, PointerSensor, closestCenter, useDroppable, useSensor, useSensors } from "@dnd-kit/core";
-import { Plus } from "lucide-react";
-
-import { useTasks } from "../../contexts/TaskContext";
-import TaskCard from "./TaskCard";
-import TaskModal from "./TaskModal";
-
-const columns = ["Pending", "In Progress", "Completed"];
-
-function Column({ title, tasks, onEdit, onDelete }) {
-  const { setNodeRef, isOver } = useDroppable({ id: title });
-
+const KanbanColumn = ({ id, title, tasks, onEdit }) => {
   return (
-    <section className="kanban-column">
-      <div className="kanban-column__header">
-        <div className="stack-2">
-          <span className={`badge ${title === "Pending" ? "badge--pending" : title === "In Progress" ? "badge--in-progress" : "badge--completed"}`}>{title}</span>
-          <h3 className="heading-md">{title}</h3>
-        </div>
-        <span className="kanban-column__count">{tasks.length}</span>
+    <div className="flex-1 min-w-[300px] flex flex-col glass rounded-xl overflow-hidden h-full">
+      <div className="p-4 border-b flex justify-between items-center" style={{ borderColor: 'hsla(var(--color-border), 0.5)', backgroundColor: 'hsla(var(--color-surface), 0.3)' }}>
+        <h3 className="font-semibold">{title}</h3>
+        <span className="bg-surface px-2 py-0.5 rounded-full text-xs font-medium text-muted">
+          {tasks.length}
+        </span>
       </div>
-
-      <div
-        ref={setNodeRef}
-        className="kanban-dropzone"
-        style={{ outline: isOver ? "1px solid hsl(var(--primary) / 0.35)" : "none", borderRadius: 18 }}
-      >
-        {tasks.length ? tasks.map((task) => <TaskCard key={task._id} task={task} onEdit={onEdit} onDelete={onDelete} />) : <div className="kanban-empty">Drop tasks here</div>}
+      
+      <div className="p-4 flex-1 overflow-y-auto min-h-[150px]">
+        <SortableContext items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
+          {tasks.map(task => (
+            <TaskCard key={task.id} task={task} onEdit={onEdit} />
+          ))}
+        </SortableContext>
+        {tasks.length === 0 && (
+          <div className="h-24 border-2 border-dashed rounded-lg flex items-center justify-center text-muted text-sm" style={{ borderColor: 'hsla(var(--color-border), 0.3)' }}>
+            Drop tasks here
+          </div>
+        )}
       </div>
-    </section>
+    </div>
   );
-}
+};
 
-function KanbanBoard() {
-  const { tasks, loading, createTask, updateTask, deleteTask, moveTaskStatus } = useTasks();
-  const [modalOpen, setModalOpen] = useState(false);
-  const [selectedTask, setSelectedTask] = useState(null);
-  const [saving, setSaving] = useState(false);
+const KanbanBoard = ({ onEditTask }) => {
+  const { tasks, updateTask } = useTask();
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      activationConstraint: { distance: 8 },
-    })
+      activationConstraint: {
+        distance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor)
   );
 
-  const tasksByColumn = useMemo(() => {
-    return columns.reduce((accumulator, column) => {
-      accumulator[column] = tasks.filter((task) => task.status === column);
-      return accumulator;
-    }, {});
-  }, [tasks]);
+  const pendingTasks = tasks.filter(t => t.status === 'pending');
+  const inProgressTasks = tasks.filter(t => t.status === 'progress');
+  const completedTasks = tasks.filter(t => t.status === 'completed');
 
-  const openCreate = () => {
-    setSelectedTask(null);
-    setModalOpen(true);
-  };
-
-  const openEdit = (task) => {
-    setSelectedTask(task);
-    setModalOpen(true);
-  };
-
-  const handleSave = async (payload) => {
-    setSaving(true);
-    try {
-      if (selectedTask) {
-        await updateTask(selectedTask._id, payload);
-      } else {
-        await createTask(payload);
-      }
-    } finally {
-      setSaving(false);
-      setModalOpen(false);
-      setSelectedTask(null);
-    }
-  };
-
-  const handleDelete = async (task) => {
-    const confirmed = window.confirm(`Delete task: ${task.title}?`);
-
-    if (confirmed) {
-      await deleteTask(task._id);
-    }
-  };
-
-  const handleDragEnd = async ({ active, over }) => {
+  const handleDragEnd = (event) => {
+    const { active, over } = event;
+    
     if (!over) return;
 
-    const task = tasks.find((item) => item._id === active.id);
-    if (!task) return;
+    const activeId = active.id;
+    const overId = over.id;
 
-    const nextStatus = columns.includes(over.id) ? over.id : tasks.find((item) => item._id === over.id)?.status;
-    if (!nextStatus || nextStatus === task.status) return;
+    if (activeId === overId) return;
 
-    await moveTaskStatus(task._id, nextStatus);
+    const activeTask = tasks.find(t => t.id === activeId);
+    
+    // Find what container the over item belongs to
+    // If over item is a container (column), its ID might be "pending", "progress", etc.
+    // If over item is a task, find its status
+    let newStatus;
+    
+    const overTask = tasks.find(t => t.id === overId);
+    if (overTask) {
+      newStatus = overTask.status;
+    } else {
+      // Must have dropped on an empty container
+      newStatus = overId;
+    }
+
+    if (activeTask && activeTask.status !== newStatus) {
+      updateTask(activeId, { status: newStatus });
+    }
   };
 
   return (
-    <div className="kanban-wrap">
-      <div className="kanban-toolbar">
-        <div className="stack-2">
-          <span className="page-kicker">Execution board</span>
-          <div>
-            <h2 className="heading-lg">Kanban workspace</h2>
-            <p className="subtle" style={{ margin: 0 }}>Drag tasks across the board to update status in real time.</p>
-          </div>
+    <DndContext 
+      sensors={sensors} 
+      collisionDetection={closestCorners} 
+      onDragEnd={handleDragEnd}
+    >
+      <div className="flex gap-6 h-[calc(100vh-140px)] overflow-x-auto pb-4">
+        {/* We need drop targets for empty columns too, so we give them IDs matching statuses */}
+        <div id="pending" className="flex-1 min-w-[300px]">
+          <KanbanColumn id="pending" title="Pending" tasks={pendingTasks} onEdit={onEditTask} />
         </div>
-
-        <button type="button" className="btn btn-primary" onClick={openCreate}>
-          <Plus size={16} />
-          Add task
-        </button>
+        <div id="progress" className="flex-1 min-w-[300px]">
+          <KanbanColumn id="progress" title="In Progress" tasks={inProgressTasks} onEdit={onEditTask} />
+        </div>
+        <div id="completed" className="flex-1 min-w-[300px]">
+          <KanbanColumn id="completed" title="Completed" tasks={completedTasks} onEdit={onEditTask} />
+        </div>
       </div>
-
-      {loading ? (
-        <div className="empty-state">Loading tasks...</div>
-      ) : (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <div className="kanban-grid">
-            {columns.map((column) => (
-              <Column key={column} title={column} tasks={tasksByColumn[column] || []} onEdit={openEdit} onDelete={handleDelete} />
-            ))}
-          </div>
-        </DndContext>
-      )}
-
-      <TaskModal open={modalOpen} task={selectedTask} onClose={() => setModalOpen(false)} onSave={handleSave} busy={saving} />
-    </div>
+    </DndContext>
   );
-}
+};
 
 export default KanbanBoard;

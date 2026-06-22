@@ -1,114 +1,172 @@
-import { useEffect, useState } from "react";
+import React, { useState, useEffect } from 'react';
+import { X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useTask } from '../../contexts/TaskContext';
 
-import { X } from "lucide-react";
-
-const initialForm = {
-  title: "",
-  description: "",
-  status: "Pending",
-  priority: "medium",
-};
-
-function TaskModal({ open, task, onClose, onSave, busy = false }) {
-  const [form, setForm] = useState(initialForm);
-  const [errors, setErrors] = useState({});
+const TaskModal = ({ isOpen, onClose, taskToEdit = null }) => {
+  const { createTask, updateTask } = useTask();
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    status: 'pending',
+    priority: 'medium',
+  });
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (task) {
-      setForm({
-        title: task.title || "",
-        description: task.description || "",
-        status: task.status || "Pending",
-        priority: task.priority || "medium",
+    if (taskToEdit) {
+      setFormData({
+        title: taskToEdit.title,
+        description: taskToEdit.description,
+        status: taskToEdit.status,
+        priority: taskToEdit.priority,
       });
     } else {
-      setForm(initialForm);
+      setFormData({
+        title: '',
+        description: '',
+        status: 'pending',
+        priority: 'medium',
+      });
     }
-    setErrors({});
-  }, [task, open]);
+  }, [taskToEdit, isOpen]);
 
-  const submitHandler = async (event) => {
-    event.preventDefault();
-    const nextErrors = {};
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
 
-    if (!form.title.trim()) {
-      nextErrors.title = "Title is required";
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      if (taskToEdit) {
+        await updateTask(taskToEdit.id, formData);
+      } else {
+        await createTask(formData);
+      }
+      onClose();
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
     }
-
-    if (form.description.trim().length < 10) {
-      nextErrors.description = "Add a more descriptive summary";
-    }
-
-    if (Object.keys(nextErrors).length) {
-      setErrors(nextErrors);
-      return;
-    }
-
-    await onSave(form);
-    onClose();
   };
 
   return (
-    open ? (
-      <div className="modal-shell">
-        <div className="overlay" onClick={onClose} />
-
-        <div className="modal-card">
-          <div className="modal-header">
-            <div className="stack-2">
-              <span className="page-kicker">Task editor</span>
-              <div>
-                <h2 className="heading-lg">{task ? "Edit task" : "Create task"}</h2>
-                <p className="subtle" style={{ margin: 0 }}>Adjust task details and status in a single modal.</p>
-              </div>
-            </div>
-            <button type="button" className="close-btn" onClick={onClose} aria-label="Close modal">
-              <X size={18} />
-            </button>
-          </div>
-
-          <form className="modal-grid" onSubmit={submitHandler}>
-            <div className="field-grid">
-              <label className="label" htmlFor="task-title">Title</label>
-              <input id="task-title" className="input" value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} placeholder="Design onboarding flow" />
-              {errors.title ? <span className="muted" style={{ color: "hsl(var(--danger))" }}>{errors.title}</span> : null}
-            </div>
-
-            <div className="field-grid">
-              <label className="label" htmlFor="task-description">Description</label>
-              <textarea id="task-description" className="textarea" value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} placeholder="Add useful context, dependencies, and the expected outcome." />
-              {errors.description ? <span className="muted" style={{ color: "hsl(var(--danger))" }}>{errors.description}</span> : null}
-            </div>
-
-            <div className="grid" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "1rem" }}>
-              <div className="field-grid">
-                <label className="label" htmlFor="task-status">Status</label>
-                <select id="task-status" className="select" value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))}>
-                  <option>Pending</option>
-                  <option>In Progress</option>
-                  <option>Completed</option>
-                </select>
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          {/* Backdrop */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={onClose}
+          >
+            {/* Modal */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="glass-panel w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between p-6 border-b" style={{ borderColor: 'hsla(var(--color-border), 0.5)' }}>
+                <h2 className="text-xl font-bold">
+                  {taskToEdit ? 'Edit Task' : 'Create New Task'}
+                </h2>
+                <button onClick={onClose} className="text-muted hover:text-white transition-colors">
+                  <X size={20} />
+                </button>
               </div>
 
-              <div className="field-grid">
-                <label className="label" htmlFor="task-priority">Priority</label>
-                <select id="task-priority" className="select" value={form.priority} onChange={(event) => setForm((current) => ({ ...current, priority: event.target.value }))}>
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
-              </div>
-            </div>
+              <div className="p-6 overflow-y-auto">
+                <form id="task-form" onSubmit={handleSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-muted mb-1">Task Title</label>
+                    <input
+                      type="text"
+                      name="title"
+                      value={formData.title}
+                      onChange={handleChange}
+                      required
+                      placeholder="e.g. Design Landing Page"
+                      className="input"
+                    />
+                  </div>
 
-            <div className="flex items-center gap-3" style={{ justifyContent: "flex-end" }}>
-              <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
-              <button type="submit" className="btn btn-primary" disabled={busy}>{busy ? "Saving..." : task ? "Update task" : "Create task"}</button>
-            </div>
-          </form>
-        </div>
-      </div>
-    ) : null
+                  <div>
+                    <label className="block text-sm font-medium text-muted mb-1">Description</label>
+                    <textarea
+                      name="description"
+                      value={formData.description}
+                      onChange={handleChange}
+                      rows="4"
+                      placeholder="Add more details about this task..."
+                      className="input resize-none"
+                    ></textarea>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-muted mb-1">Status</label>
+                      <select
+                        name="status"
+                        value={formData.status}
+                        onChange={handleChange}
+                        className="input"
+                        style={{ backgroundColor: 'hsla(var(--color-surface), 0.8)' }}
+                      >
+                        <option value="pending">Pending</option>
+                        <option value="progress">In Progress</option>
+                        <option value="completed">Completed</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-muted mb-1">Priority</label>
+                      <select
+                        name="priority"
+                        value={formData.priority}
+                        onChange={handleChange}
+                        className="input"
+                        style={{ backgroundColor: 'hsla(var(--color-surface), 0.8)' }}
+                      >
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                      </select>
+                    </div>
+                  </div>
+                </form>
+              </div>
+
+              <div className="p-6 border-t bg-black/20 flex justify-end gap-3" style={{ borderColor: 'hsla(var(--color-border), 0.5)' }}>
+                <button 
+                  type="button" 
+                  onClick={onClose} 
+                  className="btn btn-secondary"
+                  disabled={loading}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  form="task-form" 
+                  className="btn btn-primary"
+                  disabled={loading}
+                >
+                  {loading ? 'Saving...' : (taskToEdit ? 'Save Changes' : 'Create Task')}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
   );
-}
+};
 
 export default TaskModal;

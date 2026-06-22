@@ -1,125 +1,114 @@
-import { useMemo } from "react";
+import React from 'react';
+import { 
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, Legend
+} from 'recharts';
+import { useTask } from '../../contexts/TaskContext';
 
-import { Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+const AnalyticsBoard = () => {
+  const { tasks } = useTask();
 
-import { useTasks } from "../../contexts/TaskContext";
+  // Prepare data for Pie Chart
+  const statusData = [
+    { name: 'Pending', value: tasks.filter(t => t.status === 'pending').length, color: 'hsl(214 95% 58%)' }, // Info
+    { name: 'In Progress', value: tasks.filter(t => t.status === 'progress').length, color: 'hsl(38 92% 50%)' }, // Warning
+    { name: 'Completed', value: tasks.filter(t => t.status === 'completed').length, color: 'hsl(142 71% 45%)' }, // Success
+  ];
 
-const colors = {
-  Pending: "#f59e0b",
-  "In Progress": "#38bdf8",
-  Completed: "#34d399",
-};
+  // Prepare mock data for Line Chart (Tasks over last 7 days)
+  // In a real app, this would be computed based on task history
+  const lineData = [
+    { name: 'Mon', completed: 4, new: 6 },
+    { name: 'Tue', completed: 3, new: 4 },
+    { name: 'Wed', completed: 5, new: 2 },
+    { name: 'Thu', completed: 2, new: 7 },
+    { name: 'Fri', completed: 7, new: 3 },
+    { name: 'Sat', completed: 4, new: 1 },
+    { name: 'Sun', completed: Math.max(1, tasks.filter(t => t.status === 'completed').length), new: Math.max(2, tasks.filter(t => t.status !== 'completed').length) },
+  ];
 
-function AnalyticsBoard() {
-  const { tasks } = useTasks();
-
-  const analytics = useMemo(() => {
-    const totals = tasks.reduce(
-      (accumulator, task) => {
-        accumulator[task.status] = (accumulator[task.status] || 0) + 1;
-        return accumulator;
-      },
-      { Pending: 0, "In Progress": 0, Completed: 0 }
-    );
-
-    const trend = Array.from({ length: 7 }, (_, index) => {
-      const date = new Date();
-      date.setDate(date.getDate() - (6 - index));
-      const dayLabel = date.toLocaleDateString(undefined, { weekday: "short" });
-      const stamp = date.toISOString().slice(0, 10);
-
-      const completed = tasks.filter((task) => task.status === "Completed" && task.updatedAt?.slice(0, 10) === stamp).length;
-      const created = tasks.filter((task) => task.createdAt?.slice(0, 10) === stamp).length;
-
-      return { day: dayLabel, created, completed };
-    });
-
-    return {
-      totals,
-      trend,
-      pie: [
-        { name: "Pending", value: totals.Pending },
-        { name: "In Progress", value: totals["In Progress"] },
-        { name: "Completed", value: totals.Completed },
-      ],
-    };
-  }, [tasks]);
-
-  const completionRate = tasks.length ? Math.round((analytics.totals.Completed / tasks.length) * 100) : 0;
+  const primaryColor = 'hsl(250 89% 65%)';
 
   return (
-    <div className="stack-6">
-      <div className="summary-strip">
-        <div className="summary-card">
-          <h3>{tasks.length}</h3>
-          <p>Total tasks</p>
-        </div>
-        <div className="summary-card">
-          <h3>{completionRate}%</h3>
-          <p>Completion rate</p>
-        </div>
-        <div className="summary-card">
-          <h3>{analytics.totals["In Progress"]}</h3>
-          <p>In progress</p>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="glass-panel p-6">
+        <h3 className="text-lg font-semibold mb-6">Task Completion Trend</h3>
+        <div className="h-[300px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={lineData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsla(var(--color-border), 0.5)" vertical={false} />
+              <XAxis dataKey="name" stroke="hsl(var(--color-text-muted))" tick={{fill: 'hsl(var(--color-text-muted))'}} axisLine={false} tickLine={false} />
+              <YAxis stroke="hsl(var(--color-text-muted))" tick={{fill: 'hsl(var(--color-text-muted))'}} axisLine={false} tickLine={false} />
+              <RechartsTooltip 
+                contentStyle={{ backgroundColor: 'hsla(var(--color-surface), 0.9)', borderColor: 'hsla(var(--color-border), 0.5)', borderRadius: 'var(--radius-md)' }}
+                itemStyle={{ color: 'white' }}
+              />
+              <Legend />
+              <Line type="monotone" dataKey="completed" stroke="hsl(142 71% 45%)" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+              <Line type="monotone" dataKey="new" stroke={primaryColor} strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
       </div>
 
-      <div className="analytics-grid">
-        <section className="analytics-panel stack-4">
-          <div>
-            <span className="page-kicker">Progress trend</span>
-            <h3 className="heading-lg">Completion line chart</h3>
-            <p className="subtle" style={{ margin: 0 }}>Completed and created tasks over the last seven days.</p>
-          </div>
-          <div className="chart-shell">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={analytics.trend}>
-                <XAxis dataKey="day" stroke="rgba(255,255,255,0.45)" />
-                <YAxis stroke="rgba(255,255,255,0.45)" allowDecimals={false} />
-                <Tooltip
-                  contentStyle={{
-                    background: "rgba(14, 18, 35, 0.96)",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                    borderRadius: 16,
-                  }}
-                />
-                <Legend />
-                <Line type="monotone" dataKey="created" stroke="#38bdf8" strokeWidth={3} dot={false} />
-                <Line type="monotone" dataKey="completed" stroke="#34d399" strokeWidth={3} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </section>
-
-        <section className="analytics-panel stack-4">
-          <div>
-            <span className="page-kicker">Status mix</span>
-            <h3 className="heading-lg">Distribution pie chart</h3>
-            <p className="subtle" style={{ margin: 0 }}>See where work is concentrated right now.</p>
-          </div>
-          <div className="chart-shell">
+      <div className="glass-panel p-6">
+        <h3 className="text-lg font-semibold mb-6">Task Distribution</h3>
+        <div className="h-[300px] w-full flex items-center justify-center">
+          {tasks.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={analytics.pie} dataKey="value" nameKey="name" innerRadius={80} outerRadius={120} paddingAngle={4}>
-                  {analytics.pie.map((entry) => (
-                    <Cell key={entry.name} fill={colors[entry.name]} />
+                <Pie
+                  data={statusData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={80}
+                  outerRadius={110}
+                  paddingAngle={5}
+                  dataKey="value"
+                  stroke="none"
+                >
+                  {statusData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip
-                  contentStyle={{
-                    background: "rgba(14, 18, 35, 0.96)",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                    borderRadius: 16,
-                  }}
+                <RechartsTooltip 
+                  contentStyle={{ backgroundColor: 'hsla(var(--color-surface), 0.9)', borderColor: 'hsla(var(--color-border), 0.5)', borderRadius: 'var(--radius-md)' }}
+                  itemStyle={{ color: 'white' }}
                 />
-                <Legend />
+                <Legend verticalAlign="bottom" height={36} />
               </PieChart>
             </ResponsiveContainer>
+          ) : (
+            <div className="text-muted flex flex-col items-center">
+              <p>No tasks available to show distribution.</p>
+            </div>
+          )}
+        </div>
+      </div>
+      
+      <div className="glass-panel p-6 lg:col-span-2">
+        <h3 className="text-lg font-semibold mb-4">Summary Statistics</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="glass p-4 rounded-lg flex flex-col items-center justify-center text-center">
+            <span className="text-3xl font-bold text-primary mb-1">{tasks.length}</span>
+            <span className="text-sm text-muted">Total Tasks</span>
           </div>
-        </section>
+          <div className="glass p-4 rounded-lg flex flex-col items-center justify-center text-center">
+            <span className="text-3xl font-bold text-success mb-1">{statusData[2].value}</span>
+            <span className="text-sm text-muted">Completed</span>
+          </div>
+          <div className="glass p-4 rounded-lg flex flex-col items-center justify-center text-center">
+            <span className="text-3xl font-bold text-warning mb-1">{statusData[1].value}</span>
+            <span className="text-sm text-muted">In Progress</span>
+          </div>
+          <div className="glass p-4 rounded-lg flex flex-col items-center justify-center text-center">
+            <span className="text-3xl font-bold text-info mb-1">{statusData[0].value}</span>
+            <span className="text-sm text-muted">Pending</span>
+          </div>
+        </div>
       </div>
     </div>
   );
-}
+};
 
 export default AnalyticsBoard;

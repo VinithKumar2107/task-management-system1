@@ -1,111 +1,115 @@
-import { useState } from "react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
-import { ArrowRight, Lock, Mail, Sparkles } from "lucide-react";
+import React, { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { CheckSquare, Mail, Lock } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
-import { useAuth } from "../contexts/AuthContext";
-
-function Login() {
-  const [form, setForm] = useState({ email: "", password: "" });
-  const [error, setError] = useState("");
-  const { login, loading, isAuthenticated } = useAuth();
+const Login = () => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { login } = useAuth();
   const navigate = useNavigate();
 
-  const submitHandler = async (event) => {
-    event.preventDefault();
-    setError("");
-
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setIsSubmitting(true);
+    
     try {
-      await login(form);
-      navigate("/app/dashboard", { replace: true });
-    } catch (requestError) {
-      setError(requestError.response?.data?.message || "Unable to sign in right now.");
+      await login(email, password);
+      navigate('/');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  if (isAuthenticated) {
-    return <Navigate to="/app/dashboard" replace />;
-  }
-
   return (
-    <div className="auth-layout">
-      <section className="auth-hero">
-        <div className="auth-hero__topbar">
-          <span className="page-kicker">
-            <Sparkles size={14} />
-            TaskFlow Pro
-          </span>
-          <div className="auth-nav">
-            <Link className="auth-nav__link is-active" to="/login">Login</Link>
-            <Link className="auth-nav__link" to="/register">Register</Link>
-            <Link className="auth-nav__link" to="/app/dashboard">Dashboard</Link>
-          </div>
-        </div>
+    <div className="min-h-screen bg-bg flex items-center justify-center p-4">
+      <div className="w-full max-w-md relative">
+        {/* Background glow effects */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3/4 h-3/4 bg-primary/20 blur-[100px] rounded-full pointer-events-none"></div>
 
-        <div className="stack-4 auth-hero__body">
-          <div className="stack-3">
-            <h1 className="heading-xl">Run your team’s tasks from one elegant control center.</h1>
-            <p className="subtle" style={{ maxWidth: 560 }}>
-              Track work, move tasks across a live Kanban board, and inspect completion trends without leaving the workspace.
-            </p>
-          </div>
-
-          <div className="summary-strip">
-            <div className="summary-card">
-              <strong>Real-time sync</strong>
-              <p>Instant board updates against the backend.</p>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="glass-panel p-8 relative z-10"
+        >
+          <div className="flex flex-col items-center mb-8">
+            <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center mb-4 shadow-glow">
+              <CheckSquare size={28} className="text-white" />
             </div>
-            <div className="summary-card">
-              <strong>Secure auth</strong>
-              <p>Session persistence with protected routes.</p>
-            </div>
-            <div className="summary-card">
-              <strong>Dashboard ready</strong>
-              <p>Jump into analytics after sign in.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="auth-card glass-strong">
-        <div className="stack-4">
-          <div className="stack-2">
-            <span className="page-kicker">Welcome back</span>
-            <h2 className="heading-lg" style={{ marginTop: "0.9rem" }}>Sign in to your workspace</h2>
-            <p className="subtle">Use your account to access dashboards, boards, and analytics.</p>
+            <h1 className="text-2xl font-bold text-center">Welcome back</h1>
+            <p className="text-muted text-sm mt-2">Enter your details to access your tasks</p>
           </div>
 
-          <form className="auth-form" onSubmit={submitHandler}>
-            <div className="field-grid">
-              <label className="label" htmlFor="login-email">Email</label>
-              <div className="auth-field-shell">
-                <Mail size={17} className="muted" />
-                <input id="login-email" className="auth-input" type="email" value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} placeholder="you@company.com" />
+          {error && (
+            <motion.div 
+              initial={{ opacity: 0, height: 0 }} 
+              animate={{ opacity: 1, height: 'auto' }} 
+              className="bg-danger/10 border border-danger/20 text-danger px-4 py-3 rounded-lg mb-6 text-sm"
+            >
+              {error}
+            </motion.div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-muted mb-1">Email address</label>
+              <div className="relative">
+                <Mail size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="input pl-10"
+                  placeholder="name@company.com"
+                  required
+                />
               </div>
             </div>
 
-            <div className="field-grid">
-              <label className="label" htmlFor="login-password">Password</label>
-              <div className="auth-field-shell">
-                <Lock size={17} className="muted" />
-                <input id="login-password" className="auth-input" type="password" value={form.password} onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))} placeholder="Enter your password" />
+            <div>
+              <div className="flex justify-between mb-1">
+                <label className="block text-sm font-medium text-muted">Password</label>
+                <a href="#" className="text-xs text-primary hover:underline">Forgot password?</a>
+              </div>
+              <div className="relative">
+                <Lock size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="input pl-10"
+                  placeholder="••••••••"
+                  required
+                />
               </div>
             </div>
 
-            {error ? <div className="summary-card" style={{ borderColor: "hsl(var(--danger) / 0.24)" }}>{error}</div> : null}
-
-            <button type="submit" className="btn btn-primary w-full" disabled={loading}>
-              {loading ? "Signing in..." : "Sign in"}
-              <ArrowRight size={16} />
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="btn btn-primary w-full py-3 mt-4"
+            >
+              {isSubmitting ? 'Signing in...' : 'Sign in'}
             </button>
           </form>
 
-          <p className="subtle" style={{ textAlign: "center" }}>
-            New here? <Link className="muted-link" to="/register">Create an account</Link>
+          <p className="text-center text-sm text-muted mt-6">
+            Don't have an account?{' '}
+            <Link to="/register" className="text-primary font-medium hover:underline">
+              Create an account
+            </Link>
           </p>
-        </div>
-      </section>
+        </motion.div>
+      </div>
     </div>
   );
-}
+};
 
 export default Login;

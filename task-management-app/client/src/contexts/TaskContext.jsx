@@ -1,157 +1,96 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useState, useEffect, useContext } from 'react';
+import { useAuth } from './AuthContext';
 
-import api from "../services/api";
-import { useAuth } from "./AuthContext";
+const TaskContext = createContext();
 
-const TaskContext = createContext(null);
+export const useTask = () => useContext(TaskContext);
 
-const fallbackTasks = [
-  {
-    _id: "seed-1",
-    title: "Plan product launch",
-    description: "Prepare the release checklist, review dependencies, and align the launch timeline.",
-    status: "Pending",
-    priority: "high",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    _id: "seed-2",
-    title: "Refine dashboard analytics",
-    description: "Polish charts and surface the completion trend for the current sprint.",
-    status: "In Progress",
-    priority: "medium",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    _id: "seed-3",
-    title: "Ship task board interactions",
-    description: "Wire the drag and drop UX to backend status updates and sync the task list instantly.",
-    status: "Completed",
-    priority: "low",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
-
-const normalizeStatus = (status) => {
-  if (status === "In Progress") return "In Progress";
-  if (status === "Completed") return "Completed";
-  return "Pending";
-};
-
-const normalizeTask = (task) => ({
-  ...task,
-  status: normalizeStatus(task.status),
-  priority: task.priority || "medium",
-});
-
-export function TaskProvider({ children }) {
-  const { token } = useAuth();
+export const TaskProvider = ({ children }) => {
+  const { user } = useAuth();
   const [tasks, setTasks] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
 
-  const fetchTasks = useCallback(async () => {
-    if (!token) {
-      setTasks(fallbackTasks);
-      return fallbackTasks;
-    }
-
-    setLoading(true);
-    setError("");
-
-    try {
-      const { data } = await api.get("/tasks");
-      const normalized = Array.isArray(data) ? data.map(normalizeTask) : [];
-      setTasks(normalized);
-      return normalized;
-    } catch (requestError) {
-      setError(requestError.response?.data?.message || "Unable to load tasks");
-      setTasks(fallbackTasks);
-      return fallbackTasks;
-    } finally {
-      setLoading(false);
-    }
-  }, [token]);
+  // Initialize with some dummy data for showcase if empty
+  const initialTasks = [
+    { id: '1', title: 'Design System', description: 'Create SaaS design system', status: 'completed', priority: 'high', createdAt: new Date(Date.now() - 86400000 * 2).toISOString() },
+    { id: '2', title: 'Kanban Board', description: 'Implement drag and drop', status: 'progress', priority: 'high', createdAt: new Date().toISOString() },
+    { id: '3', title: 'Analytics Dashboard', description: 'Add Recharts integration', status: 'pending', priority: 'medium', createdAt: new Date().toISOString() },
+    { id: '4', title: 'Authentication Pages', description: 'Login and Register UI', status: 'completed', priority: 'low', createdAt: new Date(Date.now() - 86400000 * 1).toISOString() }
+  ];
 
   useEffect(() => {
-    fetchTasks();
-  }, [fetchTasks]);
-
-  const createTask = useCallback(async (payload) => {
-    setError("");
-    const optimisticTask = normalizeTask({
-      _id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      ...payload,
-    });
-
-    setTasks((current) => [optimisticTask, ...current]);
-
-    try {
-      const { data } = await api.post("/tasks", payload);
-      const created = normalizeTask(data.task || data);
-      setTasks((current) => current.map((task) => (task._id === optimisticTask._id ? created : task)));
-      return created;
-    } catch (requestError) {
-      setTasks((current) => current.filter((task) => task._id !== optimisticTask._id));
-      throw requestError;
-    }
-  }, []);
-
-  const updateTask = useCallback(async (taskId, payload) => {
-    setError("");
-    const previousTask = tasks.find((task) => task._id === taskId);
-
-    setTasks((current) => current.map((task) => (task._id === taskId ? normalizeTask({ ...task, ...payload }) : task)));
-
-    try {
-      const { data } = await api.put(`/tasks/${taskId}`, payload);
-      const updated = normalizeTask(data.task || data);
-      setTasks((current) => current.map((task) => (task._id === taskId ? updated : task)));
-      return updated;
-    } catch (requestError) {
-      if (previousTask) {
-        setTasks((current) => current.map((task) => (task._id === taskId ? previousTask : task)));
+    if (user) {
+      // Mock fetching tasks
+      const storedTasks = localStorage.getItem(`saas_tasks_${user.id}`);
+      if (storedTasks) {
+        setTasks(JSON.parse(storedTasks));
+      } else {
+        setTasks(initialTasks);
+        localStorage.setItem(`saas_tasks_${user.id}`, JSON.stringify(initialTasks));
       }
-      throw requestError;
+      setLoading(false);
+    } else {
+      setTasks([]);
+      setLoading(false);
     }
-  }, [tasks]);
+  }, [user]);
 
-  const deleteTask = useCallback(async (taskId) => {
-    setError("");
-    const snapshot = tasks;
-    setTasks((current) => current.filter((task) => task._id !== taskId));
-
-    try {
-      await api.delete(`/tasks/${taskId}`);
-    } catch (requestError) {
-      setTasks(snapshot);
-      throw requestError;
+  // Save tasks to local storage whenever they change
+  useEffect(() => {
+    if (user && !loading) {
+      localStorage.setItem(`saas_tasks_${user.id}`, JSON.stringify(tasks));
     }
-  }, [tasks]);
+  }, [tasks, user, loading]);
 
-  const moveTaskStatus = useCallback(async (taskId, status) => {
-    return updateTask(taskId, { status });
-  }, [updateTask]);
+  const fetchTasks = async () => {
+    // In a real app this would call API
+    return tasks;
+  };
 
-  const value = useMemo(
-    () => ({ tasks, loading, error, fetchTasks, createTask, updateTask, deleteTask, moveTaskStatus }),
-    [createTask, deleteTask, error, fetchTasks, loading, moveTaskStatus, tasks, updateTask]
+  const createTask = async (taskData) => {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        const newTask = {
+          id: Date.now().toString(),
+          ...taskData,
+          createdAt: new Date().toISOString()
+        };
+        setTasks(prev => [...prev, newTask]);
+        resolve(newTask);
+      }, 300);
+    });
+  };
+
+  const updateTask = async (taskId, updates) => {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        setTasks(prev => prev.map(t => (t.id === taskId ? { ...t, ...updates } : t)));
+        resolve({ id: taskId, ...updates });
+      }, 300);
+    });
+  };
+
+  const deleteTask = async (taskId) => {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        setTasks(prev => prev.filter(t => t.id !== taskId));
+        resolve(true);
+      }, 300);
+    });
+  };
+
+  const value = {
+    tasks,
+    loading,
+    fetchTasks,
+    createTask,
+    updateTask,
+    deleteTask
+  };
+
+  return (
+    <TaskContext.Provider value={value}>
+      {children}
+    </TaskContext.Provider>
   );
-
-  return <TaskContext.Provider value={value}>{children}</TaskContext.Provider>;
-}
-
-export function useTasks() {
-  const context = useContext(TaskContext);
-
-  if (!context) {
-    throw new Error("useTasks must be used within TaskProvider");
-  }
-
-  return context;
-}
+};
